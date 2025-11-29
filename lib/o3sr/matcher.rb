@@ -47,8 +47,11 @@ module O3sr
         # Handle sockets in error.
         arr[2].each do |err|
           raise "Server socket errored: restart" if err == @server
-          raise "Mux socket errored: restart" if @muxes.member? err
-          err_socket(err)
+          if @muxes.member? err
+            err_mux(err)
+          else
+            err_socket(err)
+          end
         end
 
         # Read from readers.
@@ -64,6 +67,18 @@ module O3sr
           else
             handle_msg(readready)
           end
+        end
+      end
+    end
+
+    def err_mux(s)
+      info("Mux #{s} is closing due to error.")
+      @clients.delete_if do |id, rec|
+        if rec[:mux] == s
+          info("Client #{id} closing because associated mux #{s} is closed.")
+          rec[:client].close()
+        else
+          false
         end
       end
     end
