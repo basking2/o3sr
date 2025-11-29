@@ -56,7 +56,7 @@ module O3sr
 
         # Read from readers.
         arr[0].each do |readready|
-          if readread == @server
+          if readready == @server
             # Adding to clients!
             accept_server(@server)
             map_clients
@@ -64,11 +64,26 @@ module O3sr
             # Adding to muxes!
             accept_mux(server)
             map_clients
+          elsif readready.closed?
+            info("Socket #{readready} is closed.")
+            tell_mux_is_closed(readready)
           else
             handle_msg(readready)
           end
         end
       end
+    end
+
+    def tell_mux_is_closed(client_sock)
+      id, c = @clients.find { |k, rec| rec[:client] == client_sock }
+      return if c.nil?
+
+      O3sr::MessageProtocol.send(
+        c[:mux], 
+        O3sr::MessageProtocol.new(1, id, O3sr::MessageProtocol::DISCONNECT, nil)
+      )
+
+      @clients.delete(id)
     end
 
     def err_mux(s)
