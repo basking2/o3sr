@@ -1,0 +1,7 @@
+#! /usr/bin/env ruby
+
+
+require 'o3sr/matcher'
+
+m = O3sr::Matcher.new
+m.start

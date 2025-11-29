@@ -45,5 +45,33 @@ RSpec.describe O3sr do
     expect(m2.data).to eq(m.data)
   end
 
+  it "can parse a message" do
+    m = O3sr::Message.new(1, 2, 3, "hi")
+    s = StringIO.new
+    O3sr::MessageProtocol.send(s, m)
+    s.rewind
+    b = s.read
+    m2, rest = O3sr::MessageProtocol.parse(b)
+
+    expect(m2.id).to eq(m.id)
+    expect(m2.type).to eq(m.type)
+    expect(m2.ver).to eq(m.ver)
+    expect(m2.data).to eq(m.data)
+  end
+
+  it "can parse zero length a message" do
+    m = O3sr::Message.new(1, 2, 3, nil)
+    s = StringIO.new
+    O3sr::MessageProtocol.send(s, m)
+    s.rewind
+    b = s.read
+    m2, rest = O3sr::MessageProtocol.parse(b)
+
+    expect(m2.id).to eq(m.id)
+    expect(m2.type).to eq(m.type)
+    expect(m2.ver).to eq(m.ver)
+    expect(m2.data).to eq(m.data)
+  end
+
   # rubocop:enable Metrics/BlockLength
 end
