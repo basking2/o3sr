@@ -11,7 +11,7 @@ module O3sr
   class Matcher
     def initialize()
       @mux_port = 6543
-      @sever_port = @mux_port+1
+      @server_port = @mux_port+1
       @current_id = 0
       # Client connections when there are no mux sockets.
       @client_needs_assignment = {}
@@ -29,20 +29,23 @@ module O3sr
     end
 
     def start()
-      @server = TCPServer.new('0.0.0.0', @server_port)
       @mux_server = TCPServer.new('0.0.0.0', @mux_port)
+      @server = TCPServer.new('0.0.0.0', @server_port)
 
-      info("Starting.")
+      info("Starting matcher.")
 
       @running = true
       while @running do
-        @r = [@server, *@muxes]
+        clients = @clients.map { |k, v| v[:client] }
+        @r = [@server, @mux_server, *@muxes, *clients]
         @w = []
-        @e = [@server, *@muxes]
-        @timeout = 2
+        @e = [@server, @mux_server, *@muxes, *clients]
+        @timeout = 5
 
+        info("Matcher selecting on #{@r}.")
         arr = IO.select(@r, @w, @e, @timeout)
         next if arr.nil?
+        info("Matcher got #{arr}.")
 
         # Handle sockets in error.
         arr[2].each do |err|
@@ -62,7 +65,7 @@ module O3sr
             map_clients
           elsif @mux_server == readready
             # Adding to muxes!
-            accept_mux(server)
+            accept_mux(@mux_server)
             map_clients
           elsif readready.closed?
             info("Socket #{readready} is closed.")
@@ -108,8 +111,19 @@ module O3sr
 
     def handle_msg(s)
       b = s.read_nonblock(O3sr::MessageProtocol::MAX_LEN)
+      info "Matcher recv from #{s}."
 
       return if b.empty?
+
+      # Now that we have a buffer, did this come from a mux socket
+      # or a server socket? Server sockets have raw protocol bytes while
+      # mux sockets have messages.
+      if not @muxes.member? s
+        # Getting a request to send over a mux.
+        send_messages_from_client(s, b)
+        return
+      end
+
 
       # Get any partial message from the @msgs store.
       if @msgs[s]
@@ -119,8 +133,9 @@ module O3sr
       # From this buffer, build up all the available messages.
       # This will typically be 1, but could be many!
       msgs = []
+      rest = b
       loop do
-        msg, rest = O3sr::MessageProtocol.parse(b)
+        msg, rest = O3sr::MessageProtocol.parse(rest)
         break if msg.nil?
         msgs << msg
       end
@@ -131,15 +146,8 @@ module O3sr
         @msgs[s] = rest
       end
 
-      # We got a message from the socket! Now... where do we send it?
-
-      if @muxes.member? s
-        # Getting a response to send to a client.
-        send_messages_from_mux(msgs)
-      else
-        # Getting a request to send over a mux.
-        send_messages_from_client(msgs)
-      end
+      # Getting a response to send to a client.
+      send_messages_from_mux(msgs)
     end
 
     # Messages from the muxer to the client.
@@ -152,42 +160,43 @@ module O3sr
     end
 
     # Messages from the client to the muxer.
-    def send_messages_from_client(msgs)
-      msgs.each do |msg|
-        c = @clients[msg.id]
-        next if c.nil?
-        O3sr::MessageProtocol.send(c[:mux], msg)
-      end
+    def send_messages_from_client(socket, data)
+      id, c = @clients.find { |k, v| v[:client] == socket }
+      return if c.nil?
+
+      msg = O3sr::Message.new(1, id, O3sr::Events::TRAFFIC, data)
+      O3sr::MessageProtocol.send(c[:mux], msg)
     end
 
     def accept_mux(mux)
-      info("Accpeting new mux.")
-      s = server.accept
+      s = mux.accept
+      info("Accpeted new mux.")
       @muxes << s
     end
 
     def accept_server(server)
-      info("Accpeting new client..")
-      s = mux.accept
-      @client_needs_assignment[@currentid] = s
+      s = server.accept
+      info("Accepted new client.")
+      @client_needs_assignment[@current_id] = s
       @current_id+=1
     end
 
     def map_clients
       return if @muxes.empty?
 
-      @client_needs_assignment.each do |client_id, socket|
+      @client_needs_assignment.delete_if do |client_id, socket|
         @clients[client_id] = {
           mux: @muxes[rand(@muxes.length)],
           client: socket,
         }
+        true
       end
     end
 
     # Cheap logging stuff.
 
     def info(s)
-      puts(s)
+      puts("#{Process.pid} - #{s}")
     end
   end
 end

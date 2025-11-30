@@ -53,7 +53,11 @@ module O3sr
     # Parses the bytes. Returns [msg, remaining_bytes] or [ nil, bytes ].
     # Throws Version exception if the version does not match.
     def self.parse(bytes)
+      # Not enough to parse the header.
+      return [nil, bytes] if bytes.length < 16
+
       ver, id, type, data_len = bytes.unpack(@header)
+
       raise "Version is not 1." unless ver == 1
 
       data_remaining = nil
