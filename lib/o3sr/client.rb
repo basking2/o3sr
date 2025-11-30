@@ -80,12 +80,13 @@ module O3sr
           break if msg.nil?
 
           if msg.type == O3sr::Events::DISCONNECT
+            @logger.info("Client got DISCONNECT for id #{msg.id}.")
             c = @client_socks[msg.id]
-            return if c.nil?
-            close_client_socket(c)
-            return
+            close_client_socket(c) unless c.nil?
+            next
           end
 
+          @logger.info("Client got message id #{msg.id} from mux.")
           msgs << msg
         end
 
@@ -121,6 +122,8 @@ module O3sr
       @client_ids[sock] = id
       @client_socks[id] = sock
       @logger.info("Added connection for id #{id}.")
+      @logger.info("Client IDS #{@client_ids}.")
+      @logger.info("Client Socks #{@client_socks}.")
     end
 
     # Send data we got from the downstream to the client through the muxer.

@@ -13,7 +13,7 @@ module O3sr
     def initialize()
       @mux_port = 6543
       @server_port = @mux_port+1
-      @current_id = 0
+      @current_id = 1
       # Client connections when there are no mux sockets.
       @client_needs_assignment = {}
 
@@ -176,6 +176,8 @@ module O3sr
     def send_messages_from_client(socket, data)
       id, c = @clients.find { |k, v| v[:client] == socket }
       return if c.nil?
+
+      @logger.info("Sending msg id #{id} over socket #{socket} to mux.")
 
       msg = O3sr::Message.new(1, id, O3sr::Events::TRAFFIC, data)
       O3sr::MessageProtocol.send(c[:mux], msg)
