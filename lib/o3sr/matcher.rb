@@ -2,6 +2,7 @@
 
 require 'socket'
 require_relative 'proto.rb'
+require_relative 'logger.rb'
 
 module O3sr
   # Matcher is a class that listens on two ports.
@@ -19,6 +20,7 @@ module O3sr
       # Mux sockets.
       @muxes = []
       @running = false
+      @logger = O3sr::Logger.new("matcher").with_pid
 
       # Map of client ids to mux and client sockets.
       # id => { client:, mux: }
@@ -32,7 +34,7 @@ module O3sr
       @mux_server = TCPServer.new('0.0.0.0', @mux_port)
       @server = TCPServer.new('0.0.0.0', @server_port)
 
-      info("Starting matcher.")
+      @logger.info("Starting matcher.")
 
       @running = true
       while @running do
@@ -42,10 +44,10 @@ module O3sr
         @e = [@server, @mux_server, *@muxes, *clients]
         @timeout = 5
 
-        info("Matcher selecting on #{@r}.")
+        @logger.info("Matcher selecting on #{@r}.")
         arr = IO.select(@r, @w, @e, @timeout)
         next if arr.nil?
-        info("Matcher got #{arr}.")
+        @logger.info("Matcher got #{arr}.")
 
         # Handle sockets in error.
         arr[2].each do |err|
@@ -68,7 +70,7 @@ module O3sr
             accept_mux(@mux_server)
             map_clients
           elsif readready.closed?
-            info("Socket #{readready} is closed.")
+            @logger.info("Socket #{readready} is closed.")
             tell_mux_is_closed(readready)
           else
             handle_msg(readready)
@@ -82,7 +84,7 @@ module O3sr
       id, c = @clients.find { |k, rec| rec[:client] == client_sock }
       return if c.nil?
 
-      info("Client socket #{client_sock} id #{id} is closed.")
+      @logger.info("Client socket #{client_sock} id #{id} is closed.")
       O3sr::MessageProtocol.send(
         c[:mux], 
         O3sr::Message.new(1, id, O3sr::Events::DISCONNECT, nil)
@@ -92,10 +94,10 @@ module O3sr
     end
 
     def err_mux(s)
-      info("Mux #{s} is closing due to error.")
+      @logger.info("Mux #{s} is closing due to error.")
       @clients.delete_if do |id, rec|
         if rec[:mux] == s
-          info("Client #{id} closing because associated mux #{s} is closed.")
+          @logger.info("Client #{id} closing because associated mux #{s} is closed.")
           rec[:client].close()
         else
           false
@@ -108,7 +110,7 @@ module O3sr
       client_id, client_rec = @clients.find { |k, v| v[:client]==s}
       @clients.delete(client_id)
       client_rec[:client].close()
-      info("Client #{client_id} errored.")
+      @logger.info("Client #{client_id} errored.")
     end
 
     def handle_msg(s)
@@ -125,7 +127,7 @@ module O3sr
         return
       end
 
-      info "Matcher recv from #{s}."
+      @logger.info("Matcher recv from #{s}.")
 
       return if b.empty?
 
@@ -181,13 +183,13 @@ module O3sr
 
     def accept_mux(mux)
       s = mux.accept
-      info("Matcher accepted new mux.")
+      @logger.info("Matcher accepted new mux.")
       @muxes << s
     end
 
     def accept_server(server)
       s = server.accept
-      info("Matcher accepted new client #{@current_id}.")
+      @logger.info("Matcher accepted new client #{@current_id} to socket #{s}.")
       @client_needs_assignment[@current_id] = s
       @current_id+=1
     end
@@ -196,20 +198,14 @@ module O3sr
       return if @muxes.empty?
 
       @client_needs_assignment.delete_if do |client_id, socket|
-        info("Matcher mapping client #{client_id} to a mux.")
+        @logger.info("Matcher mapping client #{client_id} to a mux.")
         @clients[client_id] = {
           mux: @muxes[rand(@muxes.length)],
           client: socket,
         }
-        info("Matcher clients is #{@clients}.")
+        @logger.info("Matcher clients is #{@clients}.")
         true
       end
-    end
-
-    # Cheap logging stuff.
-
-    def info(s)
-      puts("#{Process.pid} - #{s}")
     end
 
     def stop()

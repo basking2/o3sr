@@ -2,6 +2,7 @@
 
 require 'socket'
 require_relative 'proto.rb'
+require_relative 'logger.rb'
 
 module O3sr
   # Client connects to a Mux port and exchanges messages.
@@ -11,6 +12,7 @@ module O3sr
       @port = port
       @dst_host = dst_host
       @dst_port = dst_port
+      @logger = O3sr::Logger.new("client").with_pid
 
       # Map of client IDs to sockets.
       @client_socks = {}
@@ -24,9 +26,9 @@ module O3sr
 
     def start
       @running = true
-      info("Client connecting to #{@host}:#{@port}...")
+      @logger.info("Client connecting to #{@host}:#{@port}...")
       @mux = TCPSocket.new @host, @port
-      info("Client connected!")
+      @logger.info("Client connected!")
 
       while @running do
         c = @client_socks.values
@@ -35,12 +37,12 @@ module O3sr
         @e = [@mux, *c]
         @timeout = 5
 
-        info("Client selecting on #{@r}.")
+        @logger.info("Client selecting on #{@r}.")
 
         arr = IO.select(@r, @w, @e, @timeout)
         next if arr.nil?
 
-        info("Client got #{arr}.")
+        @logger.info("Client got #{arr}.")
 
         arr[2].each do |r|
         end
@@ -68,7 +70,7 @@ module O3sr
 
       return if msg.nil? or msg.length == 0
 
-      info("Client handling message.")
+      @logger.info("Client handling message.")
 
       if s == @mux
         rest = (@msg.nil? or @msg.length == 0) ? msg : @msg + msg
@@ -107,35 +109,31 @@ module O3sr
         s = @client_socks[id]
         add_connection(id) if s.nil?
         s = @client_socks[id]
-        info("Client sending #{msg.data.length} bytes to downstream #{s}.")
+        @logger.info("Client sending #{msg.data.length} bytes to downstream #{s}.")
         s.write(msg.data)
       end
     end
 
     # Create and add a connection.
     def add_connection(id)
-      info("Establishing connection with #{@dst_host}:#{@dst_port}.")
+      @logger.info("Establishing connection with #{@dst_host}:#{@dst_port}.")
       sock = TCPSocket.new(@dst_host, @dst_port)
       @client_ids[sock] = id
       @client_socks[id] = sock
-      info("Added connection for id #{id}.")
+      @logger.info("Added connection for id #{id}.")
     end
 
     # Send data we got from the downstream to the client through the muxer.
     def send_to_mux(src, data)
       id = @client_ids[src]
 
-      return info("Client id for socket #{src} not found.") if id == nil
+      @logger.return info("Client id for socket #{src} not found.") if id == nil
 
       msg = O3sr::Message.new(1, id, O3sr::Events::TRAFFIC, data)
-      info("Client sending #{msg} to mux #{id}.")
+      @logger.info("Client sending #{msg} to mux #{id}.")
       O3sr::MessageProtocol.send(@mux, msg)
     end
   
-    def info(s)
-      puts("#{Process.pid} - #{s}")
-    end
-
     def stop()
       @running = false
     end
