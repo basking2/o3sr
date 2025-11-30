@@ -77,13 +77,15 @@ module O3sr
       end
     end
 
+    # A client socket is closed and must be removed from the remote muxer.
     def tell_mux_is_closed(client_sock)
       id, c = @clients.find { |k, rec| rec[:client] == client_sock }
       return if c.nil?
 
+      info("Client socket #{client_sock} id #{id} is closed.")
       O3sr::MessageProtocol.send(
         c[:mux], 
-        O3sr::MessageProtocol.new(1, id, O3sr::MessageProtocol::DISCONNECT, nil)
+        O3sr::Message.new(1, id, O3sr::Events::DISCONNECT, nil)
       )
 
       @clients.delete(id)
@@ -110,7 +112,19 @@ module O3sr
     end
 
     def handle_msg(s)
-      b = s.read_nonblock(O3sr::MessageProtocol::MAX_LEN)
+      b = begin
+        s.read_nonblock(O3sr::MessageProtocol::MAX_LEN)
+      rescue EOFError => e
+        if not @muxes.member? s
+          # Client socket closed.
+          tell_mux_is_closed(s)
+        else
+          raise "A mux is closed - how?"
+        end
+
+        return
+      end
+
       info "Matcher recv from #{s}."
 
       return if b.empty?
@@ -126,14 +140,11 @@ module O3sr
 
 
       # Get any partial message from the @msgs store.
-      if @msgs[s]
-        b = @msgs[s] + b
-      end
+      rest = @msgs[s].nil? ? b : @msgs[s] + b
 
       # From this buffer, build up all the available messages.
       # This will typically be 1, but could be many!
       msgs = []
-      rest = b
       loop do
         msg, rest = O3sr::MessageProtocol.parse(rest)
         break if msg.nil?
@@ -155,7 +166,7 @@ module O3sr
       msgs.each do |msg|
         c = @clients[msg.id]
         next if c.nil?
-        O3sr::MessageProtocol.send(c[:client], msg)
+        c[:client].write(msg.data)
       end
     end
 
@@ -170,13 +181,13 @@ module O3sr
 
     def accept_mux(mux)
       s = mux.accept
-      info("Accpeted new mux.")
+      info("Matcher accepted new mux.")
       @muxes << s
     end
 
     def accept_server(server)
       s = server.accept
-      info("Accepted new client.")
+      info("Matcher accepted new client #{@current_id}.")
       @client_needs_assignment[@current_id] = s
       @current_id+=1
     end
@@ -185,10 +196,12 @@ module O3sr
       return if @muxes.empty?
 
       @client_needs_assignment.delete_if do |client_id, socket|
+        info("Matcher mapping client #{client_id} to a mux.")
         @clients[client_id] = {
           mux: @muxes[rand(@muxes.length)],
           client: socket,
         }
+        info("Matcher clients is #{@clients}.")
         true
       end
     end
@@ -197,6 +210,10 @@ module O3sr
 
     def info(s)
       puts("#{Process.pid} - #{s}")
+    end
+
+    def stop()
+      @running = false
     end
   end
 end
