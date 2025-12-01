@@ -29,11 +29,11 @@ parser = OptionParser.new do |opts|
   opts.separator "Modes:"
 
   opts.on("-m", "--matcher", "Run as matcher (central hub)") do
-    options[:mode] = :matcher
+    options[:mode] = "matcher"
   end
 
   opts.on("-c", "--client", "Run as client/relay proxy") do
-    options[:mode] = :client
+    options[:mode] = "client"
   end
 
   opts.separator ""
@@ -106,12 +106,12 @@ end
 
 # Start the appropriate component
 case options[:mode]
-when :matcher
+when "matcher"
   #puts "Starting O3SR Matcher on ports #{options[:relay_port]} (relay) and #{options[:client_port]} (client)"
   matcher = O3sr::Matcher.new(options[:relay_port], options[:client_port])
   setup_shutdown { matcher.stop() }
   matcher.start
-when :client
+when "client"
   #puts "Starting O3SR Client/Relay connecting to #{options[:matcher_host]}:#{options[:matcher_port]}"
   #puts "Proxying to #{options[:dest_host]}:#{options[:dest_port]}"
   client = O3sr::Client.new(
@@ -121,4 +121,9 @@ when :client
     options[:dest_port])
   setup_shutdown { client.stop() }
   client.start
+else
+  puts "Error: Unhandled mode #{options[:mode]}"
+  puts ""
+  puts parser
+  exit 1
 end

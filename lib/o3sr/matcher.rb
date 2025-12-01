@@ -93,6 +93,18 @@ module O3sr
       @clients.delete(id)
     end
 
+    def close_muxer_and_clients(mux)
+      # Remove this from the muxers.
+      @muxes.delete(mux)
+
+      # Close all related clients and remove them.
+      @clients.delete_if do |k, val|
+        @logger.info("Closing client #{k} due to muxer close.")
+        val[:client].close
+        true
+      end
+    end
+
     def err_mux(s)
       @logger.info("Mux #{s} is closing due to error.")
       @clients.delete_if do |id, rec|
@@ -118,10 +130,11 @@ module O3sr
         s.read_nonblock(O3sr::MessageProtocol::MAX_LEN)
       rescue EOFError => e
         if not @muxes.member? s
-          # Client socket closed.
+          # Client socket closed. Tell the muxer it is closed.
           tell_mux_is_closed(s)
         else
-          raise "A mux is closed - how?"
+          # The mux closed. CLOSE all clients. Why close? Their TCP is half way in a conversation.
+          close_muxer_and_clients(s)
         end
 
         return
