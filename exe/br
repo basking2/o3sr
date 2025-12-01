@@ -4,6 +4,7 @@
 require "optparse"
 require "o3sr/matcher"
 require "o3sr/client"
+require "o3sr/config"
 
 # Default configuration
 options = {
@@ -15,6 +16,9 @@ options = {
   dest_host: "localhost",
   dest_port: 80
 }
+
+# Load YAML config (XDG-first, fallback to legacy). CLI flags override file.
+options.merge!(O3sr::Config.load_config)
 
 # Option parser setup
 parser = OptionParser.new do |opts|
