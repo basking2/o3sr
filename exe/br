@@ -1,7 +1,112 @@
 #! /usr/bin/env ruby
+# frozen_string_literal: true
 
+require "optparse"
+require "o3sr/matcher"
+require "o3sr/client"
 
-require 'o3sr/matcher'
+# Default configuration
+options = {
+  mode: nil,
+  matcher_host: "localhost",
+  matcher_port: 6543,
+  relay_port: 6543,
+  client_port: 6544,
+  dest_host: "localhost",
+  dest_port: 80
+}
 
-m = O3sr::Matcher.new
-m.start
+# Option parser setup
+parser = OptionParser.new do |opts|
+  opts.banner = "Usage: br [options]"
+  opts.separator ""
+  opts.separator "O3SR (One-on-one Server Relay) - Network multiplexing relay system"
+  opts.separator ""
+  opts.separator "Modes:"
+
+  opts.on("-m", "--matcher", "Run as matcher (central hub)") do
+    options[:mode] = :matcher
+  end
+
+  opts.on("-c", "--client", "Run as client/relay proxy") do
+    options[:mode] = :client
+  end
+
+  opts.separator ""
+  opts.separator "Matcher options:"
+
+  opts.on("--relay-port PORT", Integer, "Port for relay connections (default: 6543)") do |port|
+    options[:relay_port] = port
+  end
+
+  opts.on("--client-port PORT", Integer, "Port for client connections (default: 6544)") do |port|
+    options[:client_port] = port
+  end
+
+  opts.separator ""
+  opts.separator "Client options:"
+
+  opts.on("--matcher-host HOST", "Matcher host to connect to (default: localhost)") do |host|
+    options[:matcher_host] = host
+  end
+
+  opts.on("--matcher-port PORT", Integer, "Matcher port to connect to (default: 6543)") do |port|
+    options[:matcher_port] = port
+  end
+
+  opts.on("--dest-host HOST", "Destination host for proxied connections (default: localhost)") do |host|
+    options[:dest_host] = host
+  end
+
+  opts.on("--dest-port PORT", Integer, "Destination port for proxied connections (default: 80)") do |port|
+    options[:dest_port] = port
+  end
+
+  opts.separator ""
+  opts.separator "General options:"
+
+  opts.on("-h", "--help", "Show this help message") do
+    puts opts
+    exit
+  end
+
+  opts.on("-v", "--version", "Show version") do
+    require "o3sr/version"
+    puts "O3SR version #{O3sr::VERSION}"
+    exit
+  end
+end
+
+# Parse command line arguments
+begin
+  parser.parse!(ARGV)
+rescue OptionParser::InvalidOption => e
+  puts "Error: #{e.message}"
+  puts parser
+  exit 1
+end
+
+# Validate mode selection
+if options[:mode].nil?
+  puts "Error: Must specify either --matcher or --client mode"
+  puts ""
+  puts parser
+  exit 1
+end
+
+# Start the appropriate component
+case options[:mode]
+when :matcher
+  #puts "Starting O3SR Matcher on ports #{options[:relay_port]} (relay) and #{options[:client_port]} (client)"
+  matcher = O3sr::Matcher.new
+  matcher.start
+when :client
+  #puts "Starting O3SR Client/Relay connecting to #{options[:matcher_host]}:#{options[:matcher_port]}"
+  #puts "Proxying to #{options[:dest_host]}:#{options[:dest_port]}"
+  client = O3sr::Client.new(
+    options[:matcher_host],
+    options[:matcher_port],
+    options[:dest_host],
+    options[:dest_port])
+  client.start
+end
