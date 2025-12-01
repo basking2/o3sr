@@ -10,9 +10,9 @@ module O3sr
   # The mux pool gets assigned new clients that com in on the server port.
   # Traffic over the server port is muxed through the mux sockets.
   class Matcher
-    def initialize()
-      @mux_port = 6543
-      @server_port = @mux_port+1
+    def initialize(mux_port = 6543, server_port = 6544)
+      @mux_port = mux_port
+      @server_port = server_port
       @current_id = 1
       # Client connections when there are no mux sockets.
       @client_needs_assignment = {}
@@ -211,6 +211,7 @@ module O3sr
     end
 
     def stop()
+      @logger.info("Stopping.")
       @running = false
     end
   end

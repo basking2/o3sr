@@ -94,11 +94,18 @@ if options[:mode].nil?
   exit 1
 end
 
+def setup_shutdown(&hook)
+  Signal.trap("INT", &hook)
+  Signal.trap("TERM", &hook)
+  Signal.trap("QUIT", &hook)
+end
+
 # Start the appropriate component
 case options[:mode]
 when :matcher
   #puts "Starting O3SR Matcher on ports #{options[:relay_port]} (relay) and #{options[:client_port]} (client)"
-  matcher = O3sr::Matcher.new
+  matcher = O3sr::Matcher.new(options[:relay_port], options[:client_port])
+  setup_shutdown { matcher.stop() }
   matcher.start
 when :client
   #puts "Starting O3SR Client/Relay connecting to #{options[:matcher_host]}:#{options[:matcher_port]}"
@@ -108,5 +115,6 @@ when :client
     options[:matcher_port],
     options[:dest_host],
     options[:dest_port])
+  setup_shutdown { client.stop() }
   client.start
 end

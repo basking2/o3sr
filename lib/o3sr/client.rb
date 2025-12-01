@@ -138,6 +138,7 @@ module O3sr
     end
   
     def stop()
+      @logger.info("Stopping.")
       @running = false
     end
   end
