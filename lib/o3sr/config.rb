@@ -27,6 +27,7 @@ module O3sr
     def config_path
       return xdg_path if File.exist?(xdg_path)
       return legacy_path if File.exist?(legacy_path)
+
       nil
     end
 
@@ -42,10 +43,8 @@ module O3sr
           warn "Warning: config file #{cp} ignored: must contain a mapping"
           return {}
         end
-        if cp == legacy_path && cp != xdg_path
-          warn "Warning: using legacy config #{cp}; consider moving to #{xdg_path}"
-        end
-        conf.each_with_object({}) { |(k, v), h| h[k.to_sym] = v }
+        warn "Warning: using legacy config #{cp}; consider moving to #{xdg_path}" if cp == legacy_path && cp != xdg_path
+        conf.transform_keys(&:to_sym)
       rescue StandardError => e
         warn "Warning: failed to read config #{cp}: #{e.message}"
         {}

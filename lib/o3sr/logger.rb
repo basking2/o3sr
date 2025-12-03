@@ -18,7 +18,7 @@ module O3sr
     def format_fields
       fields.reduce("") do |acc, (k, v)|
         acc + "#{k}=#{v} "
-      end 
+      end
     end
 
     def with_pid

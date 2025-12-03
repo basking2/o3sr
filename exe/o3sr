@@ -107,19 +107,20 @@ end
 # Start the appropriate component
 case options[:mode]
 when "matcher"
-  #puts "Starting O3SR Matcher on ports #{options[:relay_port]} (relay) and #{options[:client_port]} (client)"
+  # puts "Starting O3SR Matcher on ports #{options[:relay_port]} (relay) and #{options[:client_port]} (client)"
   matcher = O3sr::Matcher.new(options[:relay_port], options[:client_port])
-  setup_shutdown { matcher.stop() }
+  setup_shutdown { matcher.stop }
   matcher.start
 when "client"
-  #puts "Starting O3SR Client/Relay connecting to #{options[:matcher_host]}:#{options[:matcher_port]}"
-  #puts "Proxying to #{options[:dest_host]}:#{options[:dest_port]}"
+  # puts "Starting O3SR Client/Relay connecting to #{options[:matcher_host]}:#{options[:matcher_port]}"
+  # puts "Proxying to #{options[:dest_host]}:#{options[:dest_port]}"
   client = O3sr::Client.new(
     options[:matcher_host],
     options[:matcher_port],
     options[:dest_host],
-    options[:dest_port])
-  setup_shutdown { client.stop() }
+    options[:dest_port]
+  )
+  setup_shutdown { client.stop }
   client.start
 else
   puts "Error: Unhandled mode #{options[:mode]}"

@@ -4,7 +4,9 @@ require "o3sr/proto"
 require "o3sr/matcher"
 require "o3sr/client"
 
-require 'net/http'
+require "net/http"
+
+# rubocop:disable Metrics/BlockLength
 
 RSpec.describe O3sr::Matcher do
   matcher = nil
@@ -25,9 +27,9 @@ RSpec.describe O3sr::Matcher do
     3.times do
       http = Net::HTTP.new("localhost", 6544)
       http.use_ssl = true
-      http.verify_mode = OpenSSL::SSL::VERIFY_NONE 
+      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
       req = Net::HTTP::Get.new("/")
-      req['Host'] = 'www.google.com'
+      req["Host"] = "www.google.com"
       puts "Sending request"
       resp = http.request req
       puts "Got response"
@@ -38,3 +40,5 @@ RSpec.describe O3sr::Matcher do
     matcher.stop
   end
 end
+
+# rubocop:enable Metrics/BlockLength

@@ -4,10 +4,11 @@ require "o3sr/proto"
 require "o3sr/matcher"
 require "o3sr/client"
 
-require 'net/http'
+require "net/http"
+
+# rubocop:disable Metrics/BlockLength
 
 RSpec.describe O3sr::Matcher do
-
   before do
     skip "See e2d_www version."
   end
@@ -21,14 +22,14 @@ RSpec.describe O3sr::Matcher do
 
   client = nil
   it "starts a client" do
-    #client = O3sr::Client.new("localhost", 6543, "www.google.com", 443)
+    # client = O3sr::Client.new("localhost", 6543, "www.google.com", 443)
     client = O3sr::Client.new("localhost", 6543, "localhost", 6545)
     Thread.new { client.start }
     sleep 1
   end
 
   it "puts up a test server on 6545" do
-    server = TCPServer.new('localhost', 6545)
+    server = TCPServer.new("localhost", 6545)
     Thread.new do
       loop do
         sock = server.accept
@@ -44,7 +45,7 @@ RSpec.describe O3sr::Matcher do
   end
 
   it "echo server works" do
-    sock = TCPSocket.new('localhost', 6544)
+    sock = TCPSocket.new("localhost", 6544)
     msg = "Hello, world!"
     sock.write msg
     resp = sock.readpartial(4096)
@@ -54,7 +55,7 @@ RSpec.describe O3sr::Matcher do
     matcher.stop
   end
 
-  #it "relays traffic" do
+  # it "relays traffic" do
   #  http = Net::HTTP.new("localhost", 6544)
   #  http.use_ssl = true
   #  req = Net::HTTP::Get.new("/")
@@ -64,5 +65,7 @@ RSpec.describe O3sr::Matcher do
   #  puts "Got response"
   #  puts resp
   #  puts resp.body
-  #end
+  # end
 end
+
+# rubocop:enable Metrics/BlockLength

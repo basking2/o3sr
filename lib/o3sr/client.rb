@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require 'socket'
-require_relative 'proto.rb'
-require_relative 'logger.rb'
+require "socket"
+require_relative "proto"
+require_relative "logger"
 
 module O3sr
   # Client connects to a Mux port and exchanges messages.
@@ -30,7 +30,7 @@ module O3sr
       @mux = TCPSocket.new @host, @port
       @logger.info("Client connected!")
 
-      while @running do
+      while @running
         c = @client_socks.values
         @r = [@mux, *c]
         @w = []
@@ -65,15 +65,14 @@ module O3sr
 
         close_client_socket(s)
         return
-
       end
 
-      return if msg.nil? or msg.length == 0
+      return if msg.nil? || msg.empty?
 
       @logger.info("Client handling message.")
 
       if s == @mux
-        rest = (@msg.nil? or @msg.length == 0) ? msg : @msg + msg
+        rest = @msg.nil? || @msg.empty? ? msg : @msg + msg
         msgs = []
         loop do
           msg, rest = O3sr::MessageProtocol.parse(rest)
@@ -98,7 +97,7 @@ module O3sr
     end
 
     def close_client_socket(s)
-      s.close()
+      s.close
       id = @client_ids.delete(s)
       @client_socks.delete(id)
     end
@@ -130,14 +129,14 @@ module O3sr
     def send_to_mux(src, data)
       id = @client_ids[src]
 
-      @logger.return info("Client id for socket #{src} not found.") if id == nil
+      @logger.return info("Client id for socket #{src} not found.") if id.nil?
 
       msg = O3sr::Message.new(1, id, O3sr::Events::TRAFFIC, data)
       @logger.info("Client sending #{msg} to mux #{id}.")
       O3sr::MessageProtocol.send(@mux, msg)
     end
-  
-    def stop()
+
+    def stop
       @logger.info("Stopping.")
       @running = false
     end

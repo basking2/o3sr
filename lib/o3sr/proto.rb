@@ -2,8 +2,6 @@
 
 # O3sr
 module O3sr
-
-
   # Events are values fo the type of messages sent.
   module Events
     CONNECT = 1
@@ -20,7 +18,7 @@ module O3sr
 
   # Functions to maniuplate messges being sent or received over a socket.
   module MessageProtocol
-    MAX_LEN = 1024000
+    MAX_LEN = 1_024_000
     @header = "NNNN"
     @header_and_body = "#{@header}a*"
     def self.mustread(sock, len)
@@ -52,6 +50,7 @@ module O3sr
 
     # Parses the bytes. Returns [msg, remaining_bytes] or [ nil, bytes ].
     # Throws Version exception if the version does not match.
+    # rubocop:disable Metrics/MethodLength:
     def self.parse(bytes)
       # Not enough to parse the header.
       return [nil, bytes] if bytes.length < 16
@@ -60,20 +59,20 @@ module O3sr
 
       raise "Version is not 1." unless ver == 1
 
-      data_remaining = nil
-      if data_len.positive? 
+      if data_len.positive?
         if data_len + 16 > bytes.length
           # Partial message. Wait.
-          [ nil, bytes ]
+          [nil, bytes]
         else
-          data = bytes[16...data_len+16]
-          data_remaining = bytes[16+data_len...]
-          [ Message.new(ver, id, type, data), data_remaining ]
+          data = bytes[16...data_len + 16]
+          data_remaining = bytes[16 + data_len...]
+          [Message.new(ver, id, type, data), data_remaining]
         end
       else
         data_remaining = bytes[16...]
-        [ Message.new(ver, id, type, data), data_remaining ]
+        [Message.new(ver, id, type, data), data_remaining]
       end
     end
+    # rubocop:enable Metrics/MethodLength:
   end
 end
