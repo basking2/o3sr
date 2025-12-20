@@ -29,5 +29,9 @@ module O3sr
       l = format_fields + "level=info msg=#{s}"
       puts(l)
     end
+    def error(s)
+      l = format_fields + "level=error msg=#{s}"
+      puts(l)
+    end
   end
 end

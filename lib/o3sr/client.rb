@@ -24,11 +24,23 @@ module O3sr
       @msg = nil
     end
 
+    def connect_mux
+      loop do
+        begin
+          @logger.info("Client connecting to #{@host}:#{@port}...")
+          @mux = TCPSocket.new @host, @port
+          @logger.info("Client connected!")
+          return
+        rescue => e
+          @logger.error("Client failed to connect (retry in 5 seconds). #{e}")
+          sleep(5)
+        end
+      end
+    end
+
     def start
       @running = true
-      @logger.info("Client connecting to #{@host}:#{@port}...")
-      @mux = TCPSocket.new @host, @port
-      @logger.info("Client connected!")
+      connect_mux
 
       while @running
         c = @client_socks.values
@@ -58,12 +70,13 @@ module O3sr
       msg = begin
         s.read_nonblock(O3sr::MessageProtocol::MAX_LEN)
       rescue EOFError => e
+
         if s == @mux
-          # Mux socket closed. We're done. Exit.
-          raise e
+          connect_mux
+        else
+          close_client_socket(s)
         end
 
-        close_client_socket(s)
         return
       end
 
