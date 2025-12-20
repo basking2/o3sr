@@ -32,6 +32,7 @@ module O3sr
           @logger.info("Client connected!")
           return
         rescue => e
+          return unless @running
           @logger.error("Client failed to connect (retry in 5 seconds). #{e}")
           sleep(5)
         end
